@@ -1,0 +1,18 @@
+[project]
+name = "n8n-private-automation-hetzner-tailscale"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pulumi==3.273.0",
+  "pulumi-hcloud==1.43.4",
+  "pulumi-tailscale==0.29.0",
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.basedpyright]
+typeCheckingMode = "all"

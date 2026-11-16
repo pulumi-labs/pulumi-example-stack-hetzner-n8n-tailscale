@@ -1,0 +1,49 @@
+{
+  "id": "privateOrderReceipt",
+  "name": "Private synthetic order receipt",
+  "active": false,
+  "nodes": [
+    {
+      "id": "receipt-webhook",
+      "name": "Receive order",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "private-order-receipt",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-receipt",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {"id": "privateReceiptHeader", "name": "Private receipt webhook"}
+      }
+    },
+    {
+      "id": "persist-receipt",
+      "name": "Persist receipt",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [500, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH request AS (SELECT $1::jsonb AS body), calculated AS (SELECT body->>'order_id' AS order_id, sum(i.quantity)::integer AS item_count, sum(i.quantity::bigint * i.unit_cents)::integer AS total_cents FROM request CROSS JOIN LATERAL jsonb_to_recordset(body->'items') AS i(sku text, quantity integer, unit_cents integer) GROUP BY body HAVING bool_and(i.quantity > 0 AND i.unit_cents >= 0 AND i.sku IS NOT NULL)) INSERT INTO automation.receipts (order_id, item_count, total_cents) SELECT order_id, item_count, total_cents FROM calculated RETURNING order_id, item_count, total_cents, recorded_at",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($json.body)] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {"id": "privateReceiptDb", "name": "Private receipts database"}
+      }
+    }
+  ],
+  "connections": {
+    "Receive order": {
+      "main": [[{"node": "Persist receipt", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {"executionOrder": "v1"}
+}

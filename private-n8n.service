@@ -1,0 +1,17 @@
+[Unit]
+Description=Private n8n automation
+Requires=docker.service
+After=docker.service network-online.target cloud-final.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/private-n8n
+ExecStart=/usr/bin/docker compose up --detach --pull never
+ExecStop=/usr/bin/docker compose stop
+TimeoutStartSec=180
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target

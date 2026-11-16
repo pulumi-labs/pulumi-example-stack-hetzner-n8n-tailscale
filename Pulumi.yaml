@@ -1,0 +1,7 @@
+name: n8n-private-automation-hetzner-tailscale
+description: Private synthetic order receipts with n8n, PostgreSQL, Hetzner and Tailscale Serve.
+requiredPulumiVersion: "=3.273.0"
+runtime:
+  name: python
+  options:
+    virtualenv: .venv
