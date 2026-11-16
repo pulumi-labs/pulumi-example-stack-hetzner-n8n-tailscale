@@ -351,8 +351,11 @@ images. n8n's Sustainable Use License permits internal business/personal uses
 subject to its terms and excludes separately licensed enterprise components.
 It is fair-code, not an unrestricted hosted-service license. Reselling n8n
 access or embedding it for customers requires separate license review. No paid
-enterprise feature or subscription is used here. An authored-code license and
-maintenance owner still require the parent's decision before any public release.
+enterprise feature or subscription is used here.
+
+This example's authored code is licensed under the [MIT License](LICENSE) and
+is provided as-is, without warranty or a support commitment. Third-party
+components retain their own licenses and notices.
 
 Primary references and exact provider source URLs are recorded in
 `sources.json` in the candidate run directory. Key starting points:
