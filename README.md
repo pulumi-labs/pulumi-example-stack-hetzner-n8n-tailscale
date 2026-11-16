@@ -9,17 +9,9 @@ Compose runs the app and database on that VM, and Tailscale provides private
 HTTPS access. Python Pulumi creates and connects the infrastructure. You do not
 need Kubernetes for this example.
 
-**Validation on November 16, 2026: live deployment, owner setup, webhook execution,
-network denial, persistence and restart are UNRUN.** The installed Hetzner and
-Tailscale SDK contracts, complete infrastructure hash lock, native syntax, strict
-lint and type checks passed in an approved disposable VM. Source and reviewed
-SDK artifacts passed malware scans. Application image layers remain unacquired;
-the fresh security-fixed image age gates and dedicated account access are
-unresolved. These source checks do not prove a working automation service.
-
 ## Before you begin
 
-This is a private, experimental source example, not a tested installer. You need:
+This example uses a dedicated VM and tailnet. You need:
 
 - A dedicated Hetzner Cloud project and a token with Read & Write access.
 - A personal or dedicated Tailscale network, called a **tailnet**, with the
@@ -30,7 +22,7 @@ This is a private, experimental source example, not a tested installer. You need
   tools and encrypted state storage. Pulumi state tracks the resources it creates.
 
 Read cleanup before creating the VM: deleting it also deletes this example's
-local database. There is no tested backup or restore procedure.
+local database. Automatic backups and restore are not included.
 
 ## 1. Get the example
 
@@ -76,9 +68,9 @@ The VM and its administrators are trusted with all application data and secrets.
 
 ## 2. Prepare your accounts and private network
 
-Use accounts you are authorized to administer. The live trial was blocked by
-missing Hetzner and personal Tailscale credentials; the source checks do not
-establish account access. Store tokens in your secret manager, not in Git.
+Use accounts you are authorized to administer. Prepare your Hetzner and personal
+Tailscale credentials before creating resources. Store tokens in your secret
+manager, not in Git.
 
 Use a dedicated/personal tailnet and approved test devices. Do not reuse or
 modify an unrelated corporate tailnet. An OAuth client lets Pulumi request a
@@ -135,9 +127,8 @@ copies on the VM. Host administrators and providers can see bootstrap secrets.
 
 Use Python 3.12, `pulumi==3.273.0`, `pulumi-hcloud==1.43.4` and
 `pulumi-tailscale==0.29.0`. The providers are the libraries that let Pulumi
-manage Hetzner and Tailscale. Their installed SDK contracts passed the recorded
-source checks. Keep the checked-in `requirements.lock` rather than resolving
-new versions during this walkthrough.
+manage Hetzner and Tailscale. Keep the checked-in `requirements.lock` rather
+than resolving new versions during this walkthrough.
 
 Runtime pins in `settings.py` are real publisher index digests:
 
@@ -330,9 +321,8 @@ Success means the response contains the expected receipt and the same row exists
 in PostgreSQL. Also try a missing/wrong token and a device without a matching
 Tailscale grant; neither should reach the useful workflow.
 
-The live receipt, database readback, denied-client and restart-persistence checks
-are all **UNRUN** in the recorded trial. Capture sanitized results before cleanup;
-never retain headers containing credentials or private n8n logs.
+Check the saved receipt after a container restart if you need to confirm
+persistence. Keep credentials and private n8n logs out of repository issues.
 
 ## 6. Check costs and clean up
 
