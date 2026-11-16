@@ -1,12 +1,13 @@
 # Private n8n order automation on Hetzner with Tailscale
 
-For a small internal operations team, this Python Pulumi example provisions one
-Hetzner Docker VM running n8n and PostgreSQL. An authenticated private webhook
-turns synthetic order items into a calculated receipt stored in a separate
-PostgreSQL database. This provides a useful private automation endpoint, database
-permissions, durable local storage, TLS, and repeatable infrastructure together.
-There is no EKS, Kubernetes, public application ingress, paid SaaS integration,
-or subscription.
+Build a private automation service for a small team. You send a sample order to
+n8n, it calculates the total, saves a receipt in PostgreSQL, and sends the receipt
+back. The sample order below should produce **3000 cents**.
+
+n8n is a visual workflow editor. Hetzner supplies one virtual machine (VM), Docker
+Compose runs the app and database on that VM, and Tailscale provides private
+HTTPS access. Python Pulumi creates and connects the infrastructure. You do not
+need Kubernetes for this example.
 
 **Validation on November 16, 2026: live deployment, owner setup, webhook execution,
 network denial, persistence and restart are UNRUN.** The installed Hetzner and
@@ -16,14 +17,29 @@ SDK artifacts passed malware scans. Application image layers remain unacquired;
 the fresh security-fixed image age gates and dedicated account access are
 unresolved. These source checks do not prove a working automation service.
 
-Private review repository: `pulumi-labs/pulumi-example-stack-hetzner-n8n-tailscale`.
+## Before you begin
+
+This is a private, experimental source example, not a tested installer. You need:
+
+- A dedicated Hetzner Cloud project and a token with Read & Write access.
+- A personal or dedicated Tailscale network, called a **tailnet**, with the
+  access rules and HTTPS settings described in step 2.
+- A dedicated SSH key to administer the VM, plus the exact official Docker image
+  ID from your Hetzner account. An image ID identifies the VM's starting OS.
+- An approved isolated deployment environment with Python 3.12, the pinned Pulumi
+  tools and encrypted state storage. Pulumi state tracks the resources it creates.
+
+Read cleanup before creating the VM: deleting it also deletes this example's
+local database. There is no tested backup or restore procedure.
+
+## 1. Get the example
 
 ```sh
 git clone https://github.com/pulumi-labs/pulumi-example-stack-hetzner-n8n-tailscale.git
 cd pulumi-example-stack-hetzner-n8n-tailscale
 ```
 
-## Architecture and boundaries
+## How it works
 
 Pulumi owns a `hcloud.Server`, its inline public network, `hcloud.Firewall`,
 `hcloud.SshKey`, and one `tailscale.TailnetKey`, using explicit provider instances.
@@ -58,20 +74,22 @@ update/delete receipts or connect to the private n8n database. The n8n credentia
 uses plaintext PostgreSQL transport only within this VM's internal bridge.
 The VM and its administrators are trusted with all application data and secrets.
 
-## Existing account and access requirements
+## 2. Prepare your accounts and private network
 
-The parent owns account creation, budget, sandbox, tokens and execution. As of
-November 16, neither a Hetzner token nor a personal provisioning OAuth client was
-available, and the ChromeDevTools connector was unavailable. Resume requires
-secure references to authorized accounts or explicit free signup permission
-and a working connector; never paste token values in chat or into this repository.
+Use accounts you are authorized to administer. The live trial was blocked by
+missing Hetzner and personal Tailscale credentials; the source checks do not
+establish account access. Store tokens in your secret manager, not in Git.
 
-**The workstation's existing corporate Tailscale client is outside this scope.
-Do not use, modify, switch or log out that client.** Use a dedicated/personal
-tailnet and separately approved client identities inside the parent-approved
-execution environment. Do not borrow the corporate tailnet for validation.
+Use a dedicated/personal tailnet and approved test devices. Do not reuse or
+modify an unrelated corporate tailnet. An OAuth client lets Pulumi request a
+one-use device enrollment key without giving the VM your management secret.
 
-Before creating a VM, the tailnet owner must verify all of the following:
+<details>
+<summary>Tailscale administrator checklist: tags, access rules and test devices</summary>
+
+A tag identifies this app's device; a grant says which users or devices may reach
+it. MagicDNS gives it a private name. Before creating a VM, the tailnet owner
+must verify all of the following:
 
 - An existing dedicated tag, for example `tag:private-n8n`, whose owners include
   the provisioning OAuth client. Its client is restricted to that tag.
@@ -90,6 +108,8 @@ Before creating a VM, the tailnet owner must verify all of the following:
 The program creates no ACL, grants, DNS preferences, tailnet settings, OAuth
 clients or shared tags. If those prerequisites are absent, record a blocker.
 Do not replace the global policy or silently weaken it.
+
+</details>
 
 Use a project-scoped Hetzner **Read & Write** API token in a dedicated project;
 the API token permission boundary is the project, not a per-server IAM policy.
@@ -111,14 +131,13 @@ restrict Hetzner project membership, never emit decrypted state/user-data or
 `docker compose config` into retained logs. Cloud-init keeps root-readable
 copies on the VM. Host administrators and providers can see bootstrap secrets.
 
-## Reviewed version targets and execution gates
+## 3. Prepare the pinned software
 
-Direct Python targets are `pulumi==3.273.0`, `pulumi-hcloud==1.43.4`, and
-`pulumi-tailscale==0.29.0`, with Python 3.12. The two providers' declared Pulumi
-lower bound is 3.231.0, so 3.273.0 satisfies package metadata; installed symbols,
-provider serialization and CLI compatibility still need sandbox checks.
-Provider 0.30.0 was current when researched but was released November 14; the
-older 0.29.0 target avoids an unnecessary fresh provider dependency.
+Use Python 3.12, `pulumi==3.273.0`, `pulumi-hcloud==1.43.4` and
+`pulumi-tailscale==0.29.0`. The providers are the libraries that let Pulumi
+manage Hetzner and Tailscale. Their installed SDK contracts passed the recorded
+source checks. Keep the checked-in `requirements.lock` rather than resolving
+new versions during this walkthrough.
 
 Runtime pins in `settings.py` are real publisher index digests:
 
@@ -134,6 +153,9 @@ Acquire, inspect, scan and preload the exact selected Linux/amd64 images before
 starting the service. A digest string alone does not prove registry provenance
 or scan coverage. Match the actual loaded image digest to the reviewed index
 and platform manifest mapping inside the sandbox.
+
+<details>
+<summary>Dated security notes and release-age requirements</summary>
 
 The mature Tailscale 1.104.4 image was pushed October 28 and includes the
 TS-2026-014 through TS-2026-017 fixes. Newer TS-2026-018 concerns the Kubernetes
@@ -153,13 +175,15 @@ index was published November 12 at 22:16:18 UTC and reaches four days
 on **November 16 at 22:16:19 UTC** (rounded up); confirm publication at acquisition.
 Downgrading to 17.11 retains these fixes'
 vulnerabilities. These are concrete security-driven age blockers, not a request
-to wait for the latest releases. **No fresh-artifact waiver exists.** The parent
-must obtain explicit waiver or wait for the fixed artifacts' age threshold.
+to wait for the latest releases. **No fresh-artifact waiver exists.** Wait for
+the fixed artifacts' age threshold unless your execution policy explicitly permits early use.
 All current advisories still need rechecking when layers are acquired.
 
-The parent must produce a real transitive `uv.lock`, export hash-locked wheel
-requirements, and record downloaded wheel and provider/plugin/CLI hashes inside
-the approved sandbox. None is fabricated here. Scan all wheel contents including
+</details>
+
+The checked-in `requirements.lock` records exact Python packages and hashes.
+Keep a record of the downloaded package and tool hashes in your approved
+deployment environment. Scan all wheel contents including
 native libraries, images including every layer/whiteout and nested archive,
 provider binaries, tools and generated cloud-init/bootstrap outputs **before**
 execution. Scanner coverage errors, skipped files or unresolved malware findings
@@ -168,15 +192,28 @@ Use the existing trusted scanner and approved VM boundary; do not reconstruct or
 scan the official OS disk. Inspect preinstalled Docker/Compose versions and
 their actual behavior in the guest before loading workloads.
 
-## Configure and deploy in the approved sandbox
+## 4. Configure and create the VM
 
-The following are native commands for the parent after approval and scans,
-**never commands to run on the workstation**. Copy only reviewed source into
-disposable guest storage. Acquire Pulumi CLI 3.273.0 and matching hcloud 1.43.4 /
-tailscale 0.29.0 plugins. Generate/install the scanned locked Python closure with
-`uv lock`, `uv export --frozen --format requirements-txt --output-file requirements.lock`,
-and `uv sync --frozen --no-dev`; review resolved release ages and scan artifacts
-before allowing their imports/hooks. Use an approved private encrypted backend.
+Run Pulumi commands in your approved isolated deployment environment, not on
+an unisolated workstation. Copy the reviewed source there, prepare Pulumi CLI
+3.273.0 and the matching hcloud 1.43.4 / tailscale 0.29.0 plugins, and install the
+scanned Python packages using `--require-hashes -r requirements.lock`.
+Use an encrypted Pulumi backend and keep state outside Git.
+
+The next block creates a **stack**, a named copy of your deployment. Replace the
+shell variables with values from your accounts before running it:
+
+| Variable | Where the value comes from |
+| --- | --- |
+| `DEDICATED_HOSTNAME` | A unique, non-sensitive name you choose for the VM |
+| `VERIFIED_DOCKER_CE_IMAGE_ID` | Numeric ID of the official x86 Docker app image in Hetzner |
+| `APPROVED_OPERATOR_IPV4_CIDR` | Your approved SSH source IPv4 followed by `/32` |
+| `DEDICATED_SSH_PUBLIC_KEY` | The public half of your dedicated SSH key |
+| `DEDICATED_TAILNET_ID`, `EXISTING_APP_TAG` | Your tailnet and the existing app tag from step 2 |
+| `VERIFIED_PRIVATE_FQDN` | Full device name such as `name.your-tailnet.ts.net` |
+| `DEDICATED_OAUTH_CLIENT_ID` | The dedicated Tailscale OAuth client's ID |
+
+Keep the matching secret values for the interactive prompts below.
 
 ```sh
 pulumi stack init private-n8n
@@ -206,9 +243,15 @@ pulumi stack output serverId
 pulumi stack output publicIpv4
 ```
 
+### Start the app on the new VM
+
+After `pulumi up` succeeds, note the server ID and public IP. Connect over SSH
+using the dedicated key and verify the host fingerprint as described in step 2.
+The following commands run **on the new Hetzner VM**, as its administrator.
+
 Provisioning writes native configuration under `/opt/private-n8n`; it deliberately
 does not download or start unscanned application images. In the VM, after the
-parent stages the reviewed archives:
+administrator stages the reviewed archives:
 
 ```sh
 cloud-init status --wait
@@ -231,7 +274,7 @@ stop and correct the name/config rather than accepting a certificate mismatch.
 No `--insecure`, Funnel, public host bind or tailnet-wide change is a remedy.
 Provider success is VM creation, not application readiness.
 
-## Owner bootstrap and useful workflow
+## 5. Create your n8n account and try an order
 
 From the authorized dedicated-tailnet client, visit the private HTTPS URL and
 complete n8n's native first-owner setup with a unique password. Enable available
@@ -280,24 +323,23 @@ malformed inputs are not promised 4xx responses, and some invalid/no-item
 requests may return an empty successful result or an internal error. No
 malformed-input or idempotency pass is claimed.
 
-The small scripts in the candidate run directory exercise the real boundary:
-`accept-useful.sh` verifies the authenticated response and missing/wrong-token
-401/403 responses; `assert-persisted.sh` verifies the exact row independently
-inside PostgreSQL; `assert-denied.sh` checks outside public ports and a
-grant-denied dedicated-tailnet client. Run persistence again after
-`docker compose restart` only if restart persistence is in the approved scope.
-All these checks are currently **UNRUN**. Capture sanitized IDs/results before
-cleanup and never retain response headers containing credentials or n8n logs.
+Send the JSON above as a POST request to your private URL plus
+`/webhook/order-receipt`, using `Content-Type: application/json` and your
+`X-Receipt-Token` header. Use an HTTP client that keeps the token out of logs.
+Success means the response contains the expected receipt and the same row exists
+in PostgreSQL. Also try a missing/wrong token and a device without a matching
+Tailscale grant; neither should reach the useful workflow.
 
-## Cost, changes and cleanup
+The live receipt, database readback, denied-client and restart-persistence checks
+are all **UNRUN** in the recorded trial. Capture sanitized results before cleanup;
+never retain headers containing credentials or private n8n logs.
 
-The cap is **$50 total per UTC calendar week**, shared with all parent work.
-For the current week this is November 16, 2026 00:00 UTC through November 23
-00:00 UTC. Parent must reconcile incurred usage, tax/FX, IPv4, egress, billing lag,
-and a conservative cleanup reserve against that shared cap, and record absolute
-test-stop/cleanup deadlines before deployment. This source makes no current price
-or capacity guarantee. No new subscription is authorized. Stop at the deadline
-and promptly delete disposable resources; powered-off VMs remain billable.
+## 6. Check costs and clean up
+
+Budget for the Hetzner VM, its public IPv4, storage and network traffic, plus any
+Tailscale plan charges that apply to your account. Check your current quote before
+creating resources. This example does not enforce a spending cap. Set a deadline
+for a trial and reserve time to remove it; powered-off VMs remain billable.
 
 Secrets and cloud-init are creation inputs. Changes can replace the VM and lose
 all three volumes. Before replacement, export allowed evidence/data, capture and
@@ -309,8 +351,9 @@ remove it while the VM is retained.
 
 For cleanup, first capture `Self.ID` from this VM's `tailscale status --json`
 and verify the matching device through the Tailscale API using its exact ID,
-hostname, tag and private DNS name. Keep that identifier in private parent
-evidence. Then on the VM:
+hostname, tag and private DNS name. Keep that identifier in your private cleanup
+record. The following commands delete the local application volumes and their
+data. After accepting that data loss, run them on the VM:
 
 ```sh
 cd /opt/private-n8n
@@ -319,12 +362,11 @@ systemctl disable --now private-n8n
 docker compose down --volumes
 ```
 
-Logout can remove the node already. In the approved controller, use
-`delete-owned-device.sh` with the captured device ID and dedicated scoped API
-header file. It checks the exact device's hostname, FQDN and tag before DELETE
-and verifies HTTP 404 afterward; exact 404 before deletion also records absence.
-If SSH is unavailable, use the recorded ID and control-plane inventory rather
-than deleting every device with the tag.
+Logout may already remove the device. Check the Tailscale admin console or API
+for the exact device ID you recorded. If it remains, remove that device after
+matching its hostname, full DNS name and tag, then verify that it is absent.
+Do not delete every device with the tag. A missing resource response is evidence
+of absence; an authentication failure is not.
 
 ```sh
 pulumi destroy --preview-only
@@ -357,8 +399,7 @@ This example's authored code is licensed under the [MIT License](LICENSE) and
 is provided as-is, without warranty or a support commitment. Third-party
 components retain their own licenses and notices.
 
-Primary references and exact provider source URLs are recorded in
-`sources.json` in the candidate run directory. Key starting points:
+For more detail, start with these official references:
 
 - https://docs.hetzner.com/cloud/apps/list/docker-ce/
 - https://github.com/pulumi/pulumi-hcloud/tree/v1.43.4/sdk/python/pulumi_hcloud
